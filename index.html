@@ -64,6 +64,7 @@
                             <option value="子午計畫">子午計畫</option>
                             <option value="箱箱TheBox">箱箱TheBox</option>
                             <option value="個人勢">個人勢</option>
+                            <option value="社團勢">個人勢</option>
                             <option value="其他">其他</option>
                         </select>
                     </div>
@@ -79,9 +80,17 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold mb-1 text-slate-500">訂閱/追隨數</label>
-                        <input type="text" id="subs" placeholder="例如：114萬" class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <label class="block text-xs font-bold mb-1 text-slate-500">初始訂閱/追隨數</label>
+                        <input type="text" id="subs" placeholder="例如：114萬 (或留空點同步)" class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     </div>
+                </div>
+
+                <!-- 🌟 核心新增：自動同步專用的唯一標識 ID 輸入框 -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">平台唯一標識 ID (自動更新用)</label>
+                    <input type="text" id="targetId" placeholder="YT填：@帳號 | B站填：UID數字 | Twitch填：英文代號" 
+                           class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50">
+                    <p class="text-[10px] text-slate-400 mt-1">💡 填寫此欄位，卡片上才會出現「🔄 同步」功能並成功抓取最新數據喔！</p>
                 </div>
 
                 <div>
@@ -140,6 +149,7 @@
                         <option value="Nijisanji">Nijisanji</option>
                         <option value="子午計畫">子午計畫</option>
                         <option value="箱箱TheBox">箱箱TheBox</option>
+                        <option value="社團勢">個人勢</option>
                         <option value="個人勢">個人勢</option>
                     </select>
                 </div>
