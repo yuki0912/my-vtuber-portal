@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VTuber 綜合管理生態系 v3.0</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- 引入 FontAwesome 圖示 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 引入自訂樣式檔 -->
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen">
+
+    <!-- 頂部導覽列 -->
+    <header class="bg-slate-900 text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <h1 class="text-2xl font-black tracking-wider flex items-center gap-2 text-indigo-400">
+                <i class="fa-solid fa-planet-ringed animate-pulse"></i> VTuber PORTAL <span class="text-xs bg-indigo-500 text-white px-2 py-0.5 rounded-full font-normal">v3.0</span>
+            </h1>
+            
+            <!-- 主要頁籤切換 -->
+            <nav class="flex bg-slate-800 p-1 rounded-xl border border-slate-700">
+                <button onclick="switchTab('roster')" id="btn-tab-roster" class="px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 cursor-pointer bg-indigo-600 text-white">
+                    <i class="fa-solid fa-users"></i> 成員名冊
+                </button>
+                <button onclick="switchTab('schedule')" id="btn-tab-schedule" class="px-5 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 cursor-pointer text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-calendar-days"></i> 活動行事曆
+                </button>
+            </nav>
+
+            <!-- 備份與計數 -->
+            <div class="flex items-center gap-2">
+                <button onclick="exportAllData()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer">
+                    <i class="fa-solid fa-download"></i> 導出全部
+                </button>
+                <label class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1">
+                    <i class="fa-solid fa-upload"></i> 導入
+                    <input type="file" id="importFile" class="hidden" accept=".json" onchange="importAllData(event)">
+                </label>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主區塊：成員名冊頁面 -->
+    <div id="page-roster" class="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- 左側：新增成員表單 -->
+        <section class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 h-fit lg:sticky lg:top-24">
+            <h2 class="text-lg font-bold mb-4 flex items-center gap-2 border-b border-slate-100 pb-2 text-indigo-600">
+                <i class="fa-solid fa-user-plus"></i> 新增 VTuber 檔案
+            </h2>
+            <form id="vtuberForm" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold mb-1 text-slate-500">VTuber 名字 *</label>
+                        <input type="text" id="name" required placeholder="如：湊阿庫婭" class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold mb-1 text-slate-500">所屬團體 *</label>
+                        <select id="group" required class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                            <option value="Hololive">Hololive</option>
+                            <option value="Nijisanji">Nijisanji</option>
+                            <option value="子午計畫">子午計畫</option>
+                            <option value="箱箱TheBox">箱箱TheBox</option>
+                            <option value="個人勢">個人勢</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold mb-1 text-slate-500">主要平台 *</label>
+                        <select id="platform" class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                            <option value="YouTube">YouTube</option>
+                            <option value="Twitch">Twitch</option>
+                            <option value="Bilibili">Bilibili</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold mb-1 text-slate-500">訂閱/追隨數</label>
+                        <input type="text" id="subs" placeholder="例如：114萬" class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold mb-1 text-slate-500">形象圖/立繪連結</label>
+                    <input type="url" id="imageUrl" placeholder="圖片網址 (留空則自動生成頭像，或填寫本機路徑)" class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold mb-1 text-slate-500">生日</label>
+                        <input type="text" id="birthday" placeholder="12月1日" class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold mb-1 text-slate-500">設定為主推 ⭐</label>
+                        <select id="isFavorite" class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                            <option value="false">否</option>
+                            <option value="true">是 (置頂)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold mb-1 text-slate-500">特色標籤 (用逗號隔開)</label>
+                    <input type="text" id="tags" placeholder="電競女僕, 洋蔥, 誇張" class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold mb-1 text-slate-500">頻道/房間網址</label>
+                    <input type="url" id="ytUrl" placeholder="https://..." class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold mb-1 text-slate-500">詳細介紹 / 備忘錄</label>
+                    <textarea id="description" rows="3" placeholder="記錄成員的特殊經歷、名言或近期目標..." class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                </div>
+
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200 shadow shadow-indigo-200 flex justify-center items-center gap-2 cursor-pointer text-sm">
+                    <i class="fa-solid fa-user-check"></i> 建立成員檔案
+                </button>
+            </form>
+        </section>
+
+        <!-- 右側：資料搜尋與卡片展示 -->
+        <section class="lg:col-span-2 space-y-4">
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div class="relative w-full sm:w-72">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 text-sm">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </span>
+                    <input type="text" id="searchBar" placeholder="搜尋名字、描述或標籤..." class="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                </div>
+                <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+                    <select id="filterGroup" class="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                        <option value="全部">全部箱勢</option>
+                        <option value="Hololive">Hololive</option>
+                        <option value="Nijisanji">Nijisanji</option>
+                        <option value="子午計畫">子午計畫</option>
+                        <option value="箱箱TheBox">箱箱TheBox</option>
+                        <option value="個人勢">個人勢</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- 卡片容器 -->
+            <div id="vtuberGrid" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+            <div id="emptyState" class="hidden text-center py-20 bg-white rounded-2xl border border-slate-200 text-slate-400">
+                <i class="fa-solid fa-users-slash text-4xl mb-2"></i>
+                <p>名冊內目前空空如也...</p>
+            </div>
+        </section>
+    </div>
+
+    <!-- 主區塊：重要活動行事曆頁面 -->
+    <div id="page-schedule" class="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8 hidden">
+        <!-- 左側：排程輸入 -->
+        <section class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 h-fit">
+            <h2 class="text-lg font-bold mb-4 flex items-center gap-2 border-b border-slate-100 pb-2 text-rose-600">
+                <i class="fa-solid fa-calendar-plus"></i> 登記重大活動排程
+            </h2>
+            <form id="scheduleForm" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold mb-1 text-slate-500">主角是誰？ (VTuber 名字) *</label>
+                    <input type="text" id="schedName" required placeholder="如：大空昴" class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold mb-1 text-slate-500">活動日期 *</label>
+                        <input type="date" id="schedDate" required class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold mb-1 text-slate-500">活動類型 *</label>
+                        <select id="schedType" class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 bg-white">
+                            <option value="🎂 生日/週年慶">🎂 生日/週年慶</option>
+                            <option value="✨ 新衣/3D披露">✨ 新衣/3D披露</option>
+                            <option value="🎮 大型賽事/連動">🎮 大型賽事/連動</option>
+                            <option value="🎤 歌回/演唱會">🎤 歌回/演唱會</option>
+                            <option value="📢 畢業/重大發表">📢 畢業/重大發表</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold mb-1 text-slate-500">活動內文簡述 *</label>
+                    <input type="text" id="schedTitle" required placeholder="例如：晚上 8 點 3D 新衣發表直播！" class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500">
+                </div>
+                <button type="submit" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200 shadow shadow-rose-200 flex justify-center items-center gap-2 cursor-pointer text-sm">
+                    <i class="fa-solid fa-clock"></i> 加入行事曆
+                </button>
+            </form>
+        </section>
+
+        <!-- 右側：行事曆時間軸展示 -->
+        <section class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <h2 class="text-xl font-black mb-6 text-slate-700 flex items-center gap-2">
+                <i class="fa-solid fa-timeline text-rose-500"></i> 近期重大事件時間軸
+            </h2>
+            <div id="scheduleTimeline" class="space-y-4 relative before:absolute before:inset-y-0 before:left-4 before:w-0.5 before:bg-slate-100">
+                <!-- 時間軸節點由 JS 動態生成 -->
+            </div>
+            <div id="schedEmptyState" class="hidden text-center py-16 text-slate-400">
+                <i class="fa-solid fa-calendar-xmark text-4xl mb-2"></i>
+                <p>目前沒有登記任何活動排程。</p>
+            </div>
+        </section>
+    </div>
+
+    <!-- 引入核心 JavaScript 邏輯 -->
+    <script src="assets/js/app.js"></script>
+</body>
+</html>
