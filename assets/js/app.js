@@ -1,5 +1,4 @@
 // --- 資料庫初始化 ---
-// 預設提供豐富的範例，讓新使用者一進來就知道怎麼玩
 let defaultRoster = [
     { 
         id: "demo-1", 
@@ -12,7 +11,8 @@ let defaultRoster = [
         description: "傳奇超級電競女僕，雖然私底下極度社恐，但在遊戲（APEX、大亂鬥）中展現出驚人的天賦與技術。", 
         isFavorite: true, 
         tags: ["電競女僕", "阿夸", "洋蔥"],
-        ytUrl: "https://www.youtube.com"
+        ytUrl: "https://www.youtube.com/@MinatoAqua",
+        targetId: "@MinatoAqua" // 新增：用於自動抓取的關鍵 ID
     },
     { 
         id: "demo-2", 
@@ -25,7 +25,8 @@ let defaultRoster = [
         description: "台灣知名的虛擬大前輩，台日雙語系 VTuber。聲音超級可愛，擅長各種射擊遊戲、雜談與歌回！", 
         isFavorite: false, 
         tags: ["咪嚕", "台灣VTuber", "貓咪"],
-        ytUrl: "https://www.youtube.com"
+        ytUrl: "https://www.youtube.com/@AnninMiru",
+        targetId: "@AnninMiru" // 新增：用於自動抓取的關鍵 ID
     }
 ];
 
@@ -36,20 +37,122 @@ let defaultSchedules = [
         date: "2026-06-01", 
         type: "🎮 大型賽事/連動", 
         title: "晚上 8 點！跨箱 Apex 聯賽正式開打，快來幫大家加油！" 
-    },
-    { 
-        id: "demo-s2", 
-        name: "杏仁咪嚕", 
-        date: "2026-12-26", 
-        type: "🎂 生日/週年慶", 
-        title: "咪嚕今年的生日大趴體！據說會有神祕新原創曲發表？！" 
     }
 ];
 
 let vtubers = JSON.parse(localStorage.getItem('vt_roster_v3')) || defaultRoster;
 let schedules = JSON.parse(localStorage.getItem('vt_sched_v3')) || defaultSchedules;
 
-// --- 頁籤切換邏輯 ---
+// ==========================================
+// 🌟 核心：自動抓取三大平台訂閱數邏輯
+// ==========================================
+
+// 格式化數字為中文萬/億，讓畫面更好看
+function formatSubsCount(num) {
+    if (!num || isNaN(num)) return "未獲取";
+    if (num >= 100000000) return (num / 100000000).toFixed(1) + '億';
+    if (num >= 10000) return (num / 10000).toFixed(1) + '萬';
+    return num.toString();
+}
+
+async function autoFetchSubs(id) {
+    const vt = vtubers.find(v => v.id === id);
+    if (!vt || !vt.targetId) {
+        alert("請先填寫該成員的「平台唯一標識 ID」才能進行抓取！");
+        return;
+    }
+
+    // 尋找卡片上的轉圈圈動畫與按鈕
+    const btn = document.getElementById(`sync-btn-${id}`);
+    if (btn) btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> 抓取中...';
+
+    let finalSubs = vt.subs; 
+    const cleanId = vt.targetId.trim();
+
+    try {
+        if (vt.platform === 'YouTube') {
+            // 處理 @ 符號
+            const handle = cleanId.startsWith('@') ? cleanId : `@${cleanId}`;
+            // 透過 Oembed 公開接口加上 CORS 代理
+            const url = `https://www.youtube.com/oembed?url=https://www.youtube.com/${handle}&format=json`;
+            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+            
+            const res = await fetch(proxyUrl);
+            const data = await res.json();
+            
+            if (data.contents) {
+                const pageText = data.contents;
+                // 利用正則表達式，從 YouTube 的公開網頁中解析出訂閱人數
+                const match = pageText.match(/"subscriberCountText":\s*\{\s*"simpleText":\s*"([^"]+)"\}/) || 
+                              pageText.match(/"([^"]+) subscribers"/);
+                if (match && match[1]) {
+                    finalSubs = match[1].replace(' subscribers', '').replace('位訂閱者', '').trim();
+                } else {
+                    // 備用方案：解析部分網頁字串
+                    const subIndex = pageText.indexOf('訂閱者');
+                    if (subIndex !== -1) {
+                        finalSubs = pageText.substring(subIndex - 15, subIndex).match(/[\d\.]+[萬|億|K|M]?/)?. [0] + '訂閱者' || finalSubs;
+                    } else {
+                        throw new Error("無法解析 YouTube 頁面格式");
+                    }
+                }
+            }
+        } 
+        else if (vt.platform === 'Bilibili') {
+            // Bilibili 官方有免驗蹤的數據接口，直接掛代理抓取
+            const url = `https://api.bilibili.com/x/relation/stat?vmid=${cleanId}`;
+            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+            
+            const res = await fetch(proxyUrl);
+            const raw = await res.json();
+            const data = JSON.parse(raw.contents);
+            
+            if (data && data.code === 0 && data.data && data.data.follower) {
+                finalSubs = formatSubsCount(data.data.follower);
+            } else {
+                throw new Error("Bilibili 節點回應異常");
+            }
+        } 
+        else if (vt.platform === 'Twitch') {
+            // Twitch 在 2026 年對全公開前端限制極嚴，我們透過第三方 Twitch 數據反查網頁來獲取
+            const url = `https://twitchtracker.com/${cleanId.toLowerCase()}`;
+            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+            
+            const res = await fetch(proxyUrl);
+            const data = await res.json();
+            
+            if (data.contents) {
+                const doc = new DOMParser().parseFromString(data.contents, 'text/html');
+                // 抓取 TwitchTracker 上的追隨者數字選取器
+                const followerElem = doc.querySelector('#stat-followers, .g-scalar-value');
+                if (followerElem) {
+                    const num = parseInt(followerElem.innerText.replace(/,/g, ''), 10);
+                    finalSubs = formatSubsCount(num);
+                } else {
+                    // 正則備用搜索
+                    const match = data.contents.match(/followers['"]?\s*:\s*(\d+)/i);
+                    if(match) finalSubs = formatSubsCount(parseInt(match[1], 10));
+                    else throw new Error("無法解析 Twitch 網頁結構");
+                }
+            }
+        }
+
+        // 更新本地資料庫並重新渲染
+        vt.subs = finalSubs;
+        localStorage.setItem('vt_roster_v3', JSON.stringify(vtubers));
+        renderRoster();
+        alert(`🎉 ${vt.name} 數據同步成功！目前：${finalSubs}`);
+
+    } catch (err) {
+        console.error(err);
+        alert(`❌ 抓取失敗，可能是平台改版或阻擋。您可以稍後再試，或手動修正。`);
+        if (btn) renderRoster(); // 恢復按鈕原狀
+    }
+}
+
+// ==========================================
+// 頁籤切換與渲染邏輯
+// ==========================================
 function switchTab(tabName) {
     const rosterPage = document.getElementById('page-roster');
     const schedulePage = document.getElementById('page-schedule');
@@ -70,7 +173,6 @@ function switchTab(tabName) {
     }
 }
 
-// --- 成員名冊渲染與管理 ---
 const vtuberForm = document.getElementById('vtuberForm');
 const vtuberGrid = document.getElementById('vtuberGrid');
 const emptyState = document.getElementById('emptyState');
@@ -113,10 +215,13 @@ function renderRoster() {
                                 <h3 class="text-base font-bold text-slate-800 truncate">${v.name}</h3>
                                 ${v.isFavorite ? '⭐' : ''}
                             </div>
-                            <p class="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                                <span class="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium">${v.group}</span>
-                                <span class="ml-1">${platformIcon} ${v.subs || '0'} 訂閱</span>
-                            </p>
+                            <div class="text-xs text-slate-400 flex flex-col gap-0.5 mt-0.5">
+                                <p class="flex items-center gap-1">
+                                    <span class="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium">${v.group}</span>
+                                    <span class="ml-1">${platformIcon} <span class="font-bold text-slate-700">${v.subs || '0'}</span></span>
+                                </p>
+                                ${v.targetId ? `<span class="text-[10px] text-slate-400">ID: ${v.targetId}</span>` : ''}
+                            </div>
                         </div>
                     </div>
                     
@@ -132,7 +237,13 @@ function renderRoster() {
                 </div>
 
                 <div class="bg-slate-50 px-5 py-3 border-t border-slate-100 flex justify-between items-center">
-                    ${v.ytUrl ? `<a href="${v.ytUrl}" target="_blank" class="text-xs text-indigo-600 hover:underline font-bold flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square"></i> 開啟直播間</a>` : '<span class="text-xs text-slate-400 italic">無連結</span>'}
+                    <div class="flex items-center gap-3">
+                        ${v.ytUrl ? `<a href="${v.ytUrl}" target="_blank" class="text-xs text-indigo-600 hover:underline font-bold flex items-center gap-1"><i class="fa-solid fa-arrow-up-right-from-square"></i> 直播間</a>` : '<span class="text-xs text-slate-400 italic">無連結</span>'}
+                        <!-- 🔄 新增：即時自動抓取按鈕 -->
+                        <button id="sync-btn-${v.id}" onclick="autoFetchSubs('${v.id}')" class="text-[11px] text-emerald-600 hover:text-emerald-700 font-bold bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded transition cursor-pointer">
+                            <i class="fa-solid fa-rotate"></i> 同步
+                        </button>
+                    </div>
                     <div class="flex items-center gap-2">
                         <button onclick="toggleFav('${v.id}')" class="text-slate-400 hover:text-amber-500 text-xs cursor-pointer"><i class="fa-${v.isFavorite?'solid text-amber-500':'regular'} fa-star"></i></button>
                         <button onclick="deleteVtuber('${v.id}')" class="text-slate-400 hover:text-red-500 text-xs cursor-pointer"><i class="fa-solid fa-trash"></i></button>
@@ -149,18 +260,22 @@ if (vtuberForm) {
         const tagInput = document.getElementById('tags').value;
         const tags = tagInput ? tagInput.split(/,|，/).map(t => t.trim()).filter(t => t) : [];
 
+        // 讀取新增的 targetId 輸入框
+        const targetIdValue = document.getElementById('targetId') ? document.getElementById('targetId').value : '';
+
         vtubers.unshift({
             id: Date.now().toString(),
             name: document.getElementById('name').value,
             group: document.getElementById('group').value,
             platform: document.getElementById('platform').value,
-            subs: document.getElementById('subs').value,
+            subs: document.getElementById('subs').value || "點擊同步獲取", // 留空時的提示
             imageUrl: document.getElementById('imageUrl').value,
             birthday: document.getElementById('birthday').value,
             description: document.getElementById('description').value,
             isFavorite: document.getElementById('isFavorite').value === 'true',
             tags: tags,
-            ytUrl: document.getElementById('ytUrl').value
+            ytUrl: document.getElementById('ytUrl').value,
+            targetId: targetIdValue // 儲存唯一標識
         });
         localStorage.setItem('vt_roster_v3', JSON.stringify(vtubers));
         renderRoster();
@@ -182,7 +297,7 @@ function toggleFav(id) {
     renderRoster();
 }
 
-// --- 行事曆渲染與管理 ---
+// --- 行事曆管理 ---
 const scheduleForm = document.getElementById('scheduleForm');
 const scheduleTimeline = document.getElementById('scheduleTimeline');
 const schedEmptyState = document.getElementById('schedEmptyState');
